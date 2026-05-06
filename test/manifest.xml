@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+           xsi:type="MailApp">
+  <Id>f7a3a69e-86d6-453c-9d12-4e6a1754acef</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Sherpa Test</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Hello Sherpa Test"/>
+  <Description DefaultValue="Tiny test add-in to verify Outlook tenant policy."/>
+  <IconUrl DefaultValue="https://sherpa-amc.github.io/basecamp-outlook-addin/test/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="https://sherpa-amc.github.io/basecamp-outlook-addin/test/icon-128.png"/>
+  <SupportUrl DefaultValue="https://sherpa-amc.github.io/basecamp-outlook-addin/test/"/>
+  <Hosts>
+    <Host Name="Mailbox"/>
+  </Hosts>
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.5"/>
+    </Sets>
+  </Requirements>
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://sherpa-amc.github.io/basecamp-outlook-addin/test/taskpane.html"/>
+        <RequestedHeight>250</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+  <Permissions>ReadItem</Permissions>
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+  </Rule>
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+</OfficeApp>
