@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge"/>
+    <title>Base Camp</title>
+    <link rel="stylesheet" href="taskpane.css"/>
+    <!-- Office.js (CDN) -->
+    <script src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+    <script defer src="taskpane.js"></script>
+</head>
+<body>
+    <header class="hdr">
+        <div class="hdr-title">Base Camp</div>
+        <div id="server-status" class="srv srv-checking" title="Checking local server...">
+            <span class="srv-dot"></span><span id="srv-text">Connecting...</span>
+        </div>
+    </header>
+
+    <main id="main">
+        <!-- Initial state: button to start processing -->
+        <section id="state-idle" class="card">
+            <p class="muted">Click below to scan PDF attachments in this email and save them to the matching fund folders.</p>
+            <button id="btn-process" class="btn btn-primary">Save attachments</button>
+            <p id="att-summary" class="muted small"></p>
+        </section>
+
+        <!-- Per-attachment processing state -->
+        <section id="state-processing" class="card hidden">
+            <h3 id="proc-title">Processing...</h3>
+            <p id="proc-filename" class="muted small"></p>
+            <div id="proc-step"></div>
+        </section>
+
+        <!-- Doc type picker -->
+        <section id="dialog-doctype" class="card hidden">
+            <h3>Document type</h3>
+            <p id="dt-filename" class="muted small"></p>
+            <div class="radios">
+                <label><input type="radio" name="dt" value="Factsheet" checked> Factsheet</label>
+                <label><input type="radio" name="dt" value="Letter"> Letter</label>
+                <label><input type="radio" name="dt" value="Presentation"> Presentation</label>
+                <label><input type="radio" name="dt" value="Other"> Other</label>
+            </div>
+            <div class="actions">
+                <button id="dt-skip" class="btn">Skip</button>
+                <button id="dt-ok" class="btn btn-primary">Save</button>
+            </div>
+        </section>
+
+        <!-- New fund creation -->
+        <section id="dialog-newfund" class="card hidden">
+            <h3>Create new fund</h3>
+            <p id="nf-filename" class="muted small"></p>
+            <label class="field">
+                <span>Fund name</span>
+                <input type="text" id="nf-name" autocomplete="off"/>
+            </label>
+            <label class="field">
+                <span>Keywords (comma-separated)</span>
+                <input type="text" id="nf-keywords" autocomplete="off"/>
+            </label>
+            <label class="field">
+                <span>Category</span>
+                <select id="nf-category">
+                    <option value="Universe">Universe</option>
+                    <option value="Current">Current</option>
+                    <option value="Monitoring - Tech">Monitoring &mdash; Tech</option>
+                    <option value="Monitoring - Credit">Monitoring &mdash; Credit</option>
+                    <option value="Monitoring - Europe">Monitoring &mdash; Europe</option>
+                    <option value="Monitoring - Energy">Monitoring &mdash; Energy</option>
+                    <option value="Monitoring - Commodities & Nat Resources">Monitoring &mdash; Commodities &amp; Nat Resources</option>
+                    <option value="Monitoring - Merger Arb">Monitoring &mdash; Merger Arb</option>
+                    <option value="Monitoring - Other">Monitoring &mdash; Other</option>
+                </select>
+            </label>
+            <div class="actions">
+                <button id="nf-skip" class="btn">Skip</button>
+                <button id="nf-ok" class="btn btn-primary">Create &amp; save</button>
+            </div>
+        </section>
+
+        <!-- Reading pack tag picker (for Letters only) -->
+        <section id="dialog-readingpack" class="card hidden">
+            <h3>Copy to reading pack?</h3>
+            <p id="rp-filename" class="muted small"></p>
+            <div class="radios">
+                <label><input type="radio" name="rp" value="Manager" checked> Manager</label>
+                <label><input type="radio" name="rp" value="Research"> Research</label>
+            </div>
+            <div class="actions">
+                <button id="rp-skip" class="btn">Skip</button>
+                <button id="rp-ok" class="btn btn-primary">Copy</button>
+            </div>
+        </section>
+
+        <!-- Final summary -->
+        <section id="state-summary" class="card hidden">
+            <h3 id="sum-title">Done</h3>
+            <ul id="sum-list"></ul>
+            <div class="actions">
+                <button id="sum-close" class="btn btn-primary">OK</button>
+            </div>
+        </section>
+
+        <!-- Error / no attachments -->
+        <section id="state-error" class="card hidden">
+            <p id="err-message"></p>
+            <div class="actions">
+                <button id="err-back" class="btn btn-primary">Back</button>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
