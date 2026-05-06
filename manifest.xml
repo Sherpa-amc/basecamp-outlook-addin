@@ -4,8 +4,8 @@
            xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
            xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
            xsi:type="MailApp">
-  <Id>077f6f89-074c-45a0-8746-e5d9b514ced1</Id>
-  <Version>1.0.0.1</Version>
+  <Id>3c0e3975-8e9d-4ac5-afa5-7d4bb4b804e6</Id>
+  <Version>1.0.0.2</Version>
   <ProviderName>Sherpa Asset Management</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Base Camp"/>
@@ -28,7 +28,7 @@
     <Form xsi:type="ItemRead">
       <DesktopSettings>
         <SourceLocation DefaultValue="https://sherpa-amc.github.io/basecamp-outlook-addin/taskpane.html"/>
-        <RequestedHeight>500</RequestedHeight>
+        <RequestedHeight>450</RequestedHeight>
       </DesktopSettings>
     </Form>
   </FormSettings>
