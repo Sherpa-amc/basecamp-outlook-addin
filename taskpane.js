@@ -11,19 +11,35 @@ const SERVER = 'https://localhost:8765';
 let allSavedResults = [];
 let pendingAttachments = [];
 let currentAttachment = null;
+let allFunds = [];   // populated once for the "change fund" picker
 
 Office.onReady(() => {
     // Server health check on load
     checkServerHealth();
 
+    // Preload the fund list (for the "change fund" picker).
+    loadAllFunds();
+
     // Wire buttons
     document.getElementById('btn-process').onclick = startProcessing;
     document.getElementById('dt-ok').onclick = onDocTypeOk;
     document.getElementById('dt-skip').onclick = onDocTypeSkip;
+
+    // Change-fund picker (doc-type dialog)
+    document.getElementById('dt-change-fund').onclick = toggleFundPicker;
+    document.getElementById('dt-fund-search').addEventListener('input', (e) => filterFundPicker(e.target.value));
+    document.getElementById('dt-fund-search').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const first = document.querySelector('#dt-fund-dropdown .dropdown-item[data-id]');
+            if (first) first.click();
+        }
+    });
     document.getElementById('nf-ok').onclick = onNewFundOk;
     document.getElementById('nf-skip').onclick = onNewFundSkip;
     document.getElementById('rp-ok').onclick = onReadingPackOk;
     document.getElementById('rp-skip').onclick = onReadingPackSkip;
+    document.getElementById('rn-ok').onclick = onRenameOk;
+    document.getElementById('rn-skip').onclick = onRenameSkip;
     document.getElementById('sum-close').onclick = resetUI;
     document.getElementById('err-back').onclick = resetUI;
 
@@ -169,7 +185,88 @@ async function processNextAttachment() {
 function showDocTypePicker(filename) {
     document.getElementById('dt-filename').textContent = filename;
     document.querySelector('input[name="dt"][value="Factsheet"]').checked = true;
+
+    // Show the matched fund and reset the (hidden) change-fund picker.
+    document.getElementById('dt-fund-name').textContent =
+        (currentAttachment._fund && currentAttachment._fund.name) || '(none)';
+    document.getElementById('dt-fund-picker').classList.add('hidden');
+    document.getElementById('dt-fund-dropdown').classList.add('hidden');
+    document.getElementById('dt-fund-search').value = '';
+
     showSection('dialog-doctype');
+}
+
+// -----------------------------------------------------------------------------
+// Change-fund picker (lets the user correct a wrong / missing match)
+// -----------------------------------------------------------------------------
+
+async function loadAllFunds() {
+    try {
+        const res = await fetch(`${SERVER}/api/funds`);
+        if (!res.ok) return;
+        const data = await res.json();
+        allFunds = (data.funds || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+    } catch (e) {
+        // Best-effort — the picker just won't have options if this fails.
+    }
+}
+
+function toggleFundPicker() {
+    const picker = document.getElementById('dt-fund-picker');
+    const willShow = picker.classList.contains('hidden');
+    picker.classList.toggle('hidden', !willShow);
+    if (willShow) {
+        const search = document.getElementById('dt-fund-search');
+        search.value = '';
+        filterFundPicker('');
+        setTimeout(() => search.focus(), 50);
+    }
+}
+
+function filterFundPicker(query) {
+    const dropdown = document.getElementById('dt-fund-dropdown');
+    const q = (query || '').toLowerCase().trim();
+
+    let funds = allFunds;
+    if (q) {
+        funds = funds.filter(f =>
+            f.name.toLowerCase().includes(q) ||
+            (f.keywords || []).some(kw => (kw || '').includes(q))
+        );
+    }
+
+    if (funds.length === 0) {
+        dropdown.innerHTML = '<div class="dropdown-item dropdown-empty">No funds match.</div>';
+    } else {
+        dropdown.innerHTML = funds.slice(0, 50).map(f =>
+            `<div class="dropdown-item" data-id="${escAttr(f.id)}" data-name="${escAttr(f.name)}">` +
+            `<span class="di-name">${escHtml(f.name)}</span>` +
+            `<span class="di-cat">${escHtml(f.category || '')}</span></div>`
+        ).join('');
+        dropdown.querySelectorAll('.dropdown-item[data-id]').forEach(item => {
+            item.onclick = () => pickFund(item.dataset.id, item.dataset.name);
+        });
+    }
+    dropdown.classList.remove('hidden');
+}
+
+function pickFund(id, name) {
+    // Override the matched fund for the current attachment.
+    const fund = allFunds.find(f => f.id === id) || { id, name };
+    currentAttachment._fund = { id: fund.id, name: fund.name, category: fund.category || '' };
+    document.getElementById('dt-fund-name').textContent = fund.name;
+    document.getElementById('dt-fund-picker').classList.add('hidden');
+    document.getElementById('dt-fund-dropdown').classList.add('hidden');
+    document.getElementById('dt-fund-search').value = '';
+}
+
+function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+}
+function escAttr(s) {
+    return escHtml(s).replace(/"/g, '&quot;');
 }
 
 async function onDocTypeOk() {
@@ -187,9 +284,17 @@ async function onDocTypeOk() {
         return processNextAttachment();
     }
 
+    // Stash so the rename flow can re-save the same bytes under a new name
+    currentAttachment._docType = docType;
+    currentAttachment._contentBase64 = contentBase64;
+
+    performSave(docType, currentAttachment.name, contentBase64);
+}
+
+// 3. Save (shared by the doc-type flow and the rename retry)
+async function performSave(docType, filename, contentBase64) {
     setProcessingTitle(currentAttachment.name, 'Saving to fund folder...');
 
-    // 3. Save
     let saveRes;
     try {
         const res = await fetch(`${SERVER}/api/outlook/save-attachment`, {
@@ -198,16 +303,15 @@ async function onDocTypeOk() {
             body: JSON.stringify({
                 fund_id: currentAttachment._fund.id,
                 doc_type: docType,
-                filename: currentAttachment.name,
+                filename: filename,
                 content_base64: contentBase64,
             }),
         });
 
         if (res.status === 409) {
+            // File already exists — offer to rename instead of skipping
             const err = await res.json().catch(() => ({}));
-            recordResult('warn', currentAttachment.name,
-                currentAttachment._fund.name, 'File already exists \u2014 not saved again');
-            return processNextAttachment();
+            return showRenameDialog(err.filename || filename);
         }
 
         if (!res.ok) {
@@ -216,21 +320,69 @@ async function onDocTypeOk() {
         }
         saveRes = await res.json();
     } catch (err) {
-        recordResult('error', currentAttachment.name,
+        recordResult('error', filename,
             currentAttachment._fund.name, 'Save failed: ' + err.message);
         return processNextAttachment();
     }
 
-    recordResult('ok', currentAttachment.name,
+    recordResult('ok', filename,
         currentAttachment._fund.name, `${docType}: ${saveRes.subfolder}`);
 
     // 4. If Letter, prompt reading pack
     if (docType === 'Letter') {
         currentAttachment._savePath = saveRes.path;
-        return showReadingPackDialog(currentAttachment.name);
+        return showReadingPackDialog(filename);
     }
 
     processNextAttachment();
+}
+
+// -----------------------------------------------------------------------------
+// Rename dialog (shown when the target filename already exists)
+// -----------------------------------------------------------------------------
+
+function showRenameDialog(existingName) {
+    document.getElementById('rn-existing').textContent =
+        `"${existingName}" already exists in this folder. Save under a new name:`;
+    document.getElementById('rn-input').value = suggestRenamedFilename(existingName);
+    showSection('dialog-rename');
+    setTimeout(() => document.getElementById('rn-input').focus(), 50);
+}
+
+function onRenameOk() {
+    const newName = document.getElementById('rn-input').value.trim();
+    if (!newName) {
+        alert('Please enter a file name.');
+        return;
+    }
+    showSection('state-processing');
+    // Re-save the stashed bytes. If the new name also exists, the rename
+    // dialog re-appears prefilled with the latest attempted name.
+    performSave(currentAttachment._docType, newName, currentAttachment._contentBase64);
+}
+
+function onRenameSkip() {
+    recordResult('warn', currentAttachment.name,
+        currentAttachment._fund.name, 'File already exists - skipped');
+    showSection('state-processing');
+    processNextAttachment();
+}
+
+// Append a " Mmm-yy" suffix before the extension, e.g. "Factsheet.pdf" ->
+// "Factsheet Jun-26.pdf". The user can edit before saving.
+function suggestRenamedFilename(filename) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    const suffix = ' ' + months[d.getMonth()] + '-' + String(d.getFullYear()).slice(-2);
+
+    if (!filename) return 'document' + suffix + '.pdf';
+
+    const dot = filename.lastIndexOf('.');
+    if (dot <= 0) return filename + suffix;
+    return filename.slice(0, dot) + suffix + filename.slice(dot);
 }
 
 function onDocTypeSkip() {
@@ -387,6 +539,7 @@ const ALL_SECTIONS = [
     'state-processing',
     'dialog-doctype',
     'dialog-newfund',
+    'dialog-rename',
     'dialog-readingpack',
     'state-summary',
     'state-error',

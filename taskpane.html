@@ -36,6 +36,18 @@
         <section id="dialog-doctype" class="card hidden">
             <h3>Document type</h3>
             <p id="dt-filename" class="muted small"></p>
+
+            <!-- Matched fund (with the option to change it) -->
+            <div class="fund-row">
+                <span class="fund-row-label">Fund</span>
+                <span id="dt-fund-name" class="fund-row-name"></span>
+                <button id="dt-change-fund" type="button" class="link-btn">Change</button>
+            </div>
+            <div id="dt-fund-picker" class="fund-picker hidden">
+                <input type="text" id="dt-fund-search" autocomplete="off" placeholder="Search funds..."/>
+                <div id="dt-fund-dropdown" class="dropdown hidden"></div>
+            </div>
+
             <div class="radios">
                 <label><input type="radio" name="dt" value="Factsheet" checked> Factsheet</label>
                 <label><input type="radio" name="dt" value="Letter"> Letter</label>
@@ -77,6 +89,20 @@
             <div class="actions">
                 <button id="nf-skip" class="btn">Skip</button>
                 <button id="nf-ok" class="btn btn-primary">Create &amp; save</button>
+            </div>
+        </section>
+
+        <!-- Rename (shown when the file already exists) -->
+        <section id="dialog-rename" class="card hidden">
+            <h3>File already exists</h3>
+            <p id="rn-existing" class="muted small"></p>
+            <label class="field">
+                <span>Save as</span>
+                <input type="text" id="rn-input" autocomplete="off"/>
+            </label>
+            <div class="actions">
+                <button id="rn-skip" class="btn">Skip</button>
+                <button id="rn-ok" class="btn btn-primary">Save</button>
             </div>
         </section>
 
