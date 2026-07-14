@@ -235,19 +235,40 @@ function filterFundPicker(query) {
         );
     }
 
+    // Always offer a "create new fund" action at the top — the matched fund
+    // may be wrong AND the right one may not exist yet.
+    const typed = (query || '').trim();
+    const createLabel = typed
+        ? `+ Create new fund “${escHtml(typed)}”`
+        : '+ Create new fund…';
+    let html = `<div class="dropdown-item dropdown-create" data-create="1">` +
+        `<span class="di-name">${createLabel}</span></div>`;
+
     if (funds.length === 0) {
-        dropdown.innerHTML = '<div class="dropdown-item dropdown-empty">No funds match.</div>';
+        html += '<div class="dropdown-item dropdown-empty">No existing funds match.</div>';
     } else {
-        dropdown.innerHTML = funds.slice(0, 50).map(f =>
+        html += funds.slice(0, 50).map(f =>
             `<div class="dropdown-item" data-id="${escAttr(f.id)}" data-name="${escAttr(f.name)}">` +
             `<span class="di-name">${escHtml(f.name)}</span>` +
             `<span class="di-cat">${escHtml(f.category || '')}</span></div>`
         ).join('');
-        dropdown.querySelectorAll('.dropdown-item[data-id]').forEach(item => {
-            item.onclick = () => pickFund(item.dataset.id, item.dataset.name);
-        });
     }
+    dropdown.innerHTML = html;
+
+    dropdown.querySelector('.dropdown-create').onclick = () => openNewFundFromPicker(typed);
+    dropdown.querySelectorAll('.dropdown-item[data-id]').forEach(item => {
+        item.onclick = () => pickFund(item.dataset.id, item.dataset.name);
+    });
     dropdown.classList.remove('hidden');
+}
+
+// Open the create-fund dialog from the change-fund picker, seeding the name
+// with whatever the user typed into the search box.
+function openNewFundFromPicker(typedName) {
+    document.getElementById('dt-fund-picker').classList.add('hidden');
+    document.getElementById('dt-fund-dropdown').classList.add('hidden');
+    document.getElementById('dt-fund-search').value = '';
+    showNewFundDialog(currentAttachment.name, typedName || '');
 }
 
 function pickFund(id, name) {

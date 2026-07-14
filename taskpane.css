@@ -227,6 +227,13 @@ body {
 }
 .dropdown-empty { color: #999; cursor: default; }
 .dropdown-empty:hover { background: #fff; }
+.dropdown-create {
+    color: #2558a8;
+    font-weight: 600;
+    border-bottom: 1px solid #e5e9f2;
+}
+.dropdown-create:hover { background: #eef3ff; }
+.dropdown-create .di-name { overflow: visible; white-space: normal; }
 
 #sum-list {
     list-style: none;
