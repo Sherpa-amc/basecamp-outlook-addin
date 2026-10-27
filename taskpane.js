@@ -36,6 +36,8 @@ Office.onReady(() => {
     });
     document.getElementById('nf-ok').onclick = onNewFundOk;
     document.getElementById('nf-skip').onclick = onNewFundSkip;
+    document.getElementById('dup-create').onclick = onDuplicateCreateAnyway;
+    document.getElementById('dup-back').onclick = onDuplicateBack;
     document.getElementById('rp-ok').onclick = onReadingPackOk;
     document.getElementById('rp-skip').onclick = onReadingPackSkip;
     document.getElementById('rn-ok').onclick = onRenameOk;
@@ -373,9 +375,10 @@ function showRenameDialog(existingName) {
 function onRenameOk() {
     const newName = document.getElementById('rn-input').value.trim();
     if (!newName) {
-        alert('Please enter a file name.');
+        showFieldError('rn-error', 'Please enter a file name.');
         return;
     }
+    showFieldError('rn-error', '');
     showSection('state-processing');
     // Re-save the stashed bytes. If the new name also exists, the rename
     // dialog re-appears prefilled with the latest attempted name.
@@ -422,6 +425,7 @@ function showNewFundDialog(filename, suggestedName) {
     document.getElementById('nf-name').value = suggestedName;
     document.getElementById('nf-keywords').value = suggestedName.toLowerCase();
     document.getElementById('nf-category').value = 'Universe';
+    showFieldError('nf-error', '');
     showSection('dialog-newfund');
     setTimeout(() => document.getElementById('nf-name').focus(), 50);
 }
@@ -429,41 +433,43 @@ function showNewFundDialog(filename, suggestedName) {
 async function onNewFundOk() {
     const name = document.getElementById('nf-name').value.trim();
     if (!name) {
-        alert('Please enter a fund name.');
+        showFieldError('nf-error', 'Please enter a fund name.');
         return;
     }
+    showFieldError('nf-error', '');
     const kwRaw = document.getElementById('nf-keywords').value.trim();
     const keywords = kwRaw
         ? kwRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
         : [name.toLowerCase()];
     const category = document.getElementById('nf-category').value;
 
+    // Kept so the duplicate dialog can retry with the same details
+    currentAttachment._newFund = { name, keywords, category };
+    createFund({ name, keywords, category });
+}
+
+// POST /api/funds. A 409 means the server found funds with a similar name:
+// show them in the duplicate dialog. (Office add-ins can't use confirm()/
+// alert() - the call never returns - so every question is asked in the pane.)
+async function createFund(payload) {
     showSection('state-processing');
     setProcessingTitle(currentAttachment.name, 'Creating fund...');
 
-    // POST /api/funds (handles 409 duplicate-warning by retrying with skip flag)
-    let res = await fetch(`${SERVER}/api/funds`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, keywords, category }),
-    });
-
-    if (res.status === 409) {
-        const data = await res.json().catch(() => ({}));
-        const dupes = data.duplicates || [];
-        const list = dupes.map(d => `  \u2022 ${d.name} (${d.category})`).join('\n');
-        const proceed = confirm(
-            `Possible duplicate(s) found:\n\n${list}\n\nCreate "${name}" anyway?`
-        );
-        if (!proceed) {
-            recordResult('skip', currentAttachment.name, '(skipped)', 'Duplicate fund \u2014 not created');
-            return processNextAttachment();
-        }
+    let res;
+    try {
         res = await fetch(`${SERVER}/api/funds`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, keywords, category, skip_duplicate_check: true }),
+            body: JSON.stringify(payload),
         });
+    } catch (err) {
+        recordResult('error', currentAttachment.name, '(new fund)', 'Create failed: ' + err.message);
+        return processNextAttachment();
+    }
+
+    if (res.status === 409) {
+        const data = await res.json().catch(() => ({}));
+        return showDuplicateDialog(payload.name, data.duplicates || []);
     }
 
     if (!res.ok) {
@@ -475,8 +481,46 @@ async function onNewFundOk() {
 
     const newFund = await res.json();
     currentAttachment._fund = newFund;
+    allFunds.push(newFund);
+    allFunds.sort((a, b) => a.name.localeCompare(b.name));
 
     showDocTypePicker(currentAttachment.name);
+}
+
+// -----------------------------------------------------------------------------
+// Possible-duplicate dialog
+// -----------------------------------------------------------------------------
+
+function showDuplicateDialog(name, dupes) {
+    document.getElementById('dup-intro').textContent =
+        `"${name}" looks similar to the fund${dupes.length === 1 ? '' : 's'} below. ` +
+        'Save to an existing fund, or create the new one anyway.';
+    const list = document.getElementById('dup-list');
+    list.innerHTML = dupes.map((d, i) =>
+        `<div class="dup-item">` +
+        `<span class="di-name">${escHtml(d.name)}</span>` +
+        `<span class="di-cat">${escHtml(d.category || '')}</span>` +
+        `<button type="button" class="link-btn" data-i="${i}">Use this fund</button></div>`
+    ).join('');
+    list.querySelectorAll('button[data-i]').forEach(btn => {
+        btn.onclick = () => {
+            const d = dupes[Number(btn.dataset.i)];
+            currentAttachment._fund = { id: d.id, name: d.name, category: d.category || '' };
+            showDocTypePicker(currentAttachment.name);
+        };
+    });
+    showSection('dialog-duplicate');
+}
+
+function onDuplicateCreateAnyway() {
+    createFund(Object.assign({}, currentAttachment._newFund, { skip_duplicate_check: true }));
+}
+
+function onDuplicateBack() {
+    // Back to the create dialog with what was typed, to change the name
+    showFieldError('nf-error', '');
+    showSection('dialog-newfund');
+    setTimeout(() => document.getElementById('nf-name').focus(), 50);
 }
 
 function onNewFundSkip() {
@@ -560,6 +604,7 @@ const ALL_SECTIONS = [
     'state-processing',
     'dialog-doctype',
     'dialog-newfund',
+    'dialog-duplicate',
     'dialog-rename',
     'dialog-readingpack',
     'state-summary',
@@ -577,6 +622,12 @@ function setProcessingTitle(filename, step) {
     document.getElementById('proc-title').textContent = 'Processing';
     document.getElementById('proc-filename').textContent = filename || '';
     document.getElementById('proc-step').textContent = step || '';
+}
+
+function showFieldError(id, message) {
+    const el = document.getElementById(id);
+    el.textContent = message || '';
+    el.classList.toggle('hidden', !message);
 }
 
 function recordResult(status, filename, fundName, info) {

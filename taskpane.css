@@ -235,6 +235,31 @@ body {
 .dropdown-create:hover { background: #eef3ff; }
 .dropdown-create .di-name { overflow: visible; white-space: normal; }
 
+.field-error {
+    margin: -6px 0 4px 0;
+    font-size: 12px;
+    color: #b91c1c;
+}
+
+/* Possible-duplicate dialog: existing funds the user can pick instead */
+.dup-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 10px 0 4px;
+}
+.dup-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fafbfc;
+}
+.dup-item .di-name { flex: 1; min-width: 0; font-weight: 600; }
+.dup-item .link-btn { flex-shrink: 0; }
+
 #sum-list {
     list-style: none;
     padding: 0;

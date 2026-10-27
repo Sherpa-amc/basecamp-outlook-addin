@@ -86,9 +86,21 @@
                     <option value="Monitoring - Other">Monitoring &mdash; Other</option>
                 </select>
             </label>
+            <p id="nf-error" class="field-error hidden"></p>
             <div class="actions">
                 <button id="nf-skip" class="btn">Skip</button>
                 <button id="nf-ok" class="btn btn-primary">Create &amp; save</button>
+            </div>
+        </section>
+
+        <!-- Possible duplicate (the server found funds with a similar name) -->
+        <section id="dialog-duplicate" class="card hidden">
+            <h3>Similar fund already exists</h3>
+            <p id="dup-intro" class="muted small"></p>
+            <div id="dup-list" class="dup-list"></div>
+            <div class="actions">
+                <button id="dup-back" class="btn">Back</button>
+                <button id="dup-create" class="btn btn-primary">Create anyway</button>
             </div>
         </section>
 
@@ -100,6 +112,7 @@
                 <span>Save as</span>
                 <input type="text" id="rn-input" autocomplete="off"/>
             </label>
+            <p id="rn-error" class="field-error hidden"></p>
             <div class="actions">
                 <button id="rn-skip" class="btn">Skip</button>
                 <button id="rn-ok" class="btn btn-primary">Save</button>
