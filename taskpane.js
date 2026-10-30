@@ -172,13 +172,14 @@ async function processNextAttachment() {
         return processNextAttachment();
     }
 
-    if (match.matched) {
-        currentAttachment._fund = match.fund;
-        showDocTypePicker(currentAttachment.name);
-    } else {
-        showNewFundDialog(currentAttachment.name, match.suggested_name || '');
-    }
+    // No match: open the doc-type dialog with the fund picker already open,
+    // so the user can pick an existing fund by hand (or create one from there).
+    currentAttachment._fund = match.matched ? match.fund : null;
+    currentAttachment._suggested = match.suggested_name || '';
+    showDocTypePicker(currentAttachment.name);
 }
+
+const fundLabel = () => (currentAttachment._fund && currentAttachment._fund.name) || '(no fund)';
 
 // -----------------------------------------------------------------------------
 // Doc type picker
@@ -189,13 +190,18 @@ function showDocTypePicker(filename) {
     document.querySelector('input[name="dt"][value="Factsheet"]').checked = true;
 
     // Show the matched fund and reset the (hidden) change-fund picker.
+    const hasFund = !!currentAttachment._fund;
     document.getElementById('dt-fund-name').textContent =
-        (currentAttachment._fund && currentAttachment._fund.name) || '(none)';
+        hasFund ? currentAttachment._fund.name : 'None recognised';
+    document.getElementById('dt-change-fund').textContent = hasFund ? 'Change' : 'Choose';
+    document.getElementById('dt-nomatch').classList.toggle('hidden', hasFund);
+    document.getElementById('dt-ok').disabled = !hasFund;
     document.getElementById('dt-fund-picker').classList.add('hidden');
     document.getElementById('dt-fund-dropdown').classList.add('hidden');
     document.getElementById('dt-fund-search').value = '';
 
     showSection('dialog-doctype');
+    if (!hasFund) toggleFundPicker();
 }
 
 // -----------------------------------------------------------------------------
@@ -239,7 +245,8 @@ function filterFundPicker(query) {
 
     // Always offer a "create new fund" action at the top — the matched fund
     // may be wrong AND the right one may not exist yet.
-    const typed = (query || '').trim();
+    // With nothing typed, offer the name the server guessed from the email.
+    const typed = (query || '').trim() || (currentAttachment && currentAttachment._suggested) || '';
     const createLabel = typed
         ? `+ Create new fund “${escHtml(typed)}”`
         : '+ Create new fund…';
@@ -270,6 +277,7 @@ function openNewFundFromPicker(typedName) {
     document.getElementById('dt-fund-picker').classList.add('hidden');
     document.getElementById('dt-fund-dropdown').classList.add('hidden');
     document.getElementById('dt-fund-search').value = '';
+    currentAttachment._fromPicker = true;
     showNewFundDialog(currentAttachment.name, typedName || '');
 }
 
@@ -278,6 +286,9 @@ function pickFund(id, name) {
     const fund = allFunds.find(f => f.id === id) || { id, name };
     currentAttachment._fund = { id: fund.id, name: fund.name, category: fund.category || '' };
     document.getElementById('dt-fund-name').textContent = fund.name;
+    document.getElementById('dt-change-fund').textContent = 'Change';
+    document.getElementById('dt-nomatch').classList.add('hidden');
+    document.getElementById('dt-ok').disabled = false;
     document.getElementById('dt-fund-picker').classList.add('hidden');
     document.getElementById('dt-fund-dropdown').classList.add('hidden');
     document.getElementById('dt-fund-search').value = '';
@@ -293,6 +304,7 @@ function escAttr(s) {
 }
 
 async function onDocTypeOk() {
+    if (!currentAttachment._fund) return;   // Save stays disabled until a fund is chosen
     const docType = document.querySelector('input[name="dt"]:checked').value;
     showSection('state-processing');
     setProcessingTitle(currentAttachment.name, 'Reading attachment bytes...');
@@ -410,8 +422,7 @@ function suggestRenamedFilename(filename) {
 }
 
 function onDocTypeSkip() {
-    recordResult('skip', currentAttachment.name,
-        currentAttachment._fund.name, 'Skipped by user');
+    recordResult('skip', currentAttachment.name, fundLabel(), 'Skipped by user');
     showSection('state-processing');
     processNextAttachment();
 }
@@ -425,6 +436,8 @@ function showNewFundDialog(filename, suggestedName) {
     document.getElementById('nf-name').value = suggestedName;
     document.getElementById('nf-keywords').value = suggestedName.toLowerCase();
     document.getElementById('nf-category').value = 'Universe';
+    // Opened from the fund picker: the left button goes back to it.
+    document.getElementById('nf-skip').textContent = currentAttachment._fromPicker ? 'Back' : 'Skip';
     showFieldError('nf-error', '');
     showSection('dialog-newfund');
     setTimeout(() => document.getElementById('nf-name').focus(), 50);
@@ -524,6 +537,10 @@ function onDuplicateBack() {
 }
 
 function onNewFundSkip() {
+    if (currentAttachment._fromPicker) {
+        currentAttachment._fromPicker = false;
+        return showDocTypePicker(currentAttachment.name);
+    }
     recordResult('skip', currentAttachment.name, '(no fund)', 'Skipped by user');
     showSection('state-processing');
     processNextAttachment();

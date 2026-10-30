@@ -235,6 +235,16 @@ body {
 .dropdown-create:hover { background: #eef3ff; }
 .dropdown-create .di-name { overflow: visible; white-space: normal; }
 
+/* Shown in the doc-type dialog when the server matched no fund */
+.nomatch {
+    margin: 8px 0 2px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #92400e;
+    background: #fef3c7;
+    border-radius: 6px;
+}
+
 .field-error {
     margin: -6px 0 4px 0;
     font-size: 12px;
