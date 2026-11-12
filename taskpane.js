@@ -176,7 +176,27 @@ async function processNextAttachment() {
     // so the user can pick an existing fund by hand (or create one from there).
     currentAttachment._fund = match.matched ? match.fund : null;
     currentAttachment._suggested = match.suggested_name || '';
+    // Keep the email details that were matched on: they go back with the
+    // save, so the server learns which fund this kind of document belongs to.
+    currentAttachment._subject = subject;
+    currentAttachment._sender = sender;
+    // 'learned' = the fund comes from an earlier choice, not from keywords.
+    currentAttachment._learned = match.matched && match.source === 'learned';
+    currentAttachment._basis = match.basis || '';
     showDocTypePicker(currentAttachment.name);
+}
+
+// Note under the matched fund when it comes from an earlier choice.
+function learnedHintText(basis) {
+    if (basis === 'sender') {
+        return 'Suggested because the last document from this sender went here. ' +
+               'Change it if this isn’t right.';
+    }
+    if (basis === 'file') {
+        return 'Suggested because a file with this name went here before. ' +
+               'Change it if this isn’t right.';
+    }
+    return 'Learned from an earlier choice. Change it if this isn’t right.';
 }
 
 const fundLabel = () => (currentAttachment._fund && currentAttachment._fund.name) || '(no fund)';
@@ -195,6 +215,9 @@ function showDocTypePicker(filename) {
         hasFund ? currentAttachment._fund.name : 'None recognised';
     document.getElementById('dt-change-fund').textContent = hasFund ? 'Change' : 'Choose';
     document.getElementById('dt-nomatch').classList.toggle('hidden', hasFund);
+    const learned = document.getElementById('dt-learned');
+    learned.textContent = currentAttachment._learned ? learnedHintText(currentAttachment._basis) : '';
+    learned.classList.toggle('hidden', !currentAttachment._learned);
     document.getElementById('dt-ok').disabled = !hasFund;
     document.getElementById('dt-fund-picker').classList.add('hidden');
     document.getElementById('dt-fund-dropdown').classList.add('hidden');
@@ -288,6 +311,7 @@ function pickFund(id, name) {
     document.getElementById('dt-fund-name').textContent = fund.name;
     document.getElementById('dt-change-fund').textContent = 'Change';
     document.getElementById('dt-nomatch').classList.add('hidden');
+    document.getElementById('dt-learned').classList.add('hidden');   // the user chose: no longer a suggestion
     document.getElementById('dt-ok').disabled = false;
     document.getElementById('dt-fund-picker').classList.add('hidden');
     document.getElementById('dt-fund-dropdown').classList.add('hidden');
@@ -340,6 +364,13 @@ async function performSave(docType, filename, contentBase64) {
                 doc_type: docType,
                 filename: filename,
                 content_base64: contentBase64,
+                // What the match was made on, so the server remembers the
+                // fund chosen for this sender / file name / subject.
+                // original_filename is the attachment's own name (filename
+                // may be a rename).
+                subject: currentAttachment._subject || '',
+                sender: currentAttachment._sender || '',
+                original_filename: currentAttachment.name,
             }),
         });
 

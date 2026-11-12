@@ -236,6 +236,13 @@ body {
 .dropdown-create .di-name { overflow: visible; white-space: normal; }
 
 /* Shown in the doc-type dialog when the server matched no fund */
+/* "Learned from an earlier choice" note under the matched fund */
+.learned-hint {
+    margin: 0 2px 6px;
+    font-size: 11px;
+    color: #6b7280;
+}
+
 .nomatch {
     margin: 8px 0 2px;
     padding: 8px 10px;
